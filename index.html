@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cecosesola | Inventario | Feria del Este</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <div id="login-screen">
+        <div class="login-card">
+            <h2 class="text-3xl font-bold text-white mb-2">Compañeros</h2>
+            <p class="text-gray-400 text-sm mb-4">Seleccione su nombre o escriba uno nuevo para ingresar</p>
+            
+            <form id="login-form">
+                <div class="select-container">
+                    <input type="text" id="search-input" class="input-field" placeholder="Buscar o escribir nombre..." autocomplete="off">
+                    
+                    <div id="clear-input-btn" class="hidden" title="Borrar texto">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+
+                    <div id="name-list" class="hidden"></div>
+                </div>
+                <button type="submit" class="btn-primary">INGRESAR AL MAPA</button>
+            </form>
+        </div>
+    </div>
+
+    <header class="text-center mb-10">
+        <div id="welcome-message" class="hidden text-xs md:text-sm text-indigo-400 font-bold mb-1 tracking-[0.2em] uppercase bg-indigo-900/20 py-1 px-4 inline-block rounded-full border border-indigo-500/30"></div>
+
+        <h1 class="text-4xl md:text-6xl font-black tracking-tighter mt-4">
+            <span class="gradient-text">Cecosesola</span>
+        </h1>
+        <p class="text-lg text-gray-500 font-medium">FERIA DEL ESTE | INVENTARIO</p>
+    </header>
+
+    <main id="app-container" class="max-w-7xl mx-auto">
+        <section id="map-view" class="map-container">
+            <svg id="connection-lines" class="svg-connections" viewBox="0 0 1000 1000" preserveAspectRatio="none"></svg>
+
+            <div id="central-node-container" class="col-span-4 flex justify-center mb-8">
+                <div id="central-node" class="aisle-node rounded-xl cursor-default w-full max-w-xl">
+                    <div>
+                        <h3 class="font-bold text-white text-xl md:text-3xl tracking-widest">MAPA DE INVENTARIO</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div id="aisle-1-container"></div> <div id="aisle-2-container"></div>
+            <div id="aisle-3-container"></div> <div id="aisle-4-container"></div>
+            <div id="aisle-5-container"></div> <div id="aisle-6-container"></div>
+            <div id="aisle-7-container"></div> <div id="aisle-8-container"></div>
+            <div id="aisle-9-container"></div> <div id="aisle-10-container"></div>
+            <div id="aisle-11-container"></div> <div id="aisle-12-container"></div>
+            <div id="aisle-13-container"></div> <div id="aisle-14-container"></div>
+            <div id="aisle-15-container"></div> <div id="aisle-16-container"></div>            
+            <div id="deposito-abajo-container" class="col-span-1 mt-1">
+                <div id="deposito-abajo-node" class="aisle-node cursor-pointer">
+                    <div class="flex flex-col">
+                        <span class="text-1xl mb-1">👇</span>
+                        <h3 class="font-bold text-white uppercase text-sm">Depósito Abajo</h3>
+                    </div>
+                </div>
+            </div>
+            <div id="deposito-arriba-container" class="col-span-1 mt-1">
+                <div id="deposito-arriba-node" class="aisle-node cursor-pointer">
+                    <div class="flex flex-col">
+                        <span class="text-1xl mb-1">👆</span>
+                        <h3 class="font-bold text-white uppercase text-sm">Depósito Arriba</h3>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
