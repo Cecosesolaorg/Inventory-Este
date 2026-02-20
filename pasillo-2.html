@@ -1,0 +1,1979 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INVENTARIO DE VIVERES PASILLO 2  </title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de SheetJS para Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- Configuración de fuente Inter -->
+    <style>
+        @import url('https://fonts.fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+    </style>
+    <style>
+        /* --- CONFIGURACIÓN DE VARIABLES Y TEMA --- */
+        :root {
+            --neon-cyan: #22d3ee;
+            --neon-lime: #a3e635;
+            --primary-celebration: #6366f1; /* Para la pantalla final */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d0d0d;
+            color: #e5e7eb;
+            transition: background-color 0.3s, color 0.3s;
+            /* Evitar comportamientos por defecto en móviles al mantener presionado */
+            -webkit-touch-callout: none;
+        }
+
+        /* Utilidades */
+        input[type="number"] { -moz-appearance: textfield; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        
+        /* Ocultar barras de desplazamiento (Scrollbar Hide) */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .neon-title { text-shadow: 0 0 5px rgba(34, 211, 238, 0.8); }
+        
+        /* --- ESTILOS DE TABLA (Simulación Excel) --- */
+        #inventory-table {
+            border-collapse: separate; 
+            border-spacing: 0;
+            width: 100%;
+            border: 1px solid #374151;
+            border-radius: 0.75rem; /* rounded-xl */
+            overflow: hidden;
+        }
+        
+        /* AQUI SE AJUSTÓ EL PADDING PARA QUE SE VEA MENOS GRANDE */
+        .table-header, .table-data {
+            padding: 10px 12px; /* Reducido de 12px 16px */
+            border-bottom: 1px solid #374151;
+        }
+
+        .table-header {
+            background-color: #1f2937;
+            color: #22d3ee;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: center;
+            font-size: 0.9rem; /* Header un poco más pequeño también */
+        }
+
+        .table-row { transition: background-color 0.2s; }
+        .table-row:last-child .table-data { border-bottom: none; }
+        
+        /* Modo Oscuro (Default) */
+        .table-row:hover { background-color: #1f2937; }
+        
+        /* AQUI SE CAMBIÓ EL TAMAÑO DE LA FUENTE DEL PRODUCTO */
+        .product-cell {
+            font-size: 0.85rem; /* Reducido de 0.95rem para que se lea mejor y menos amontonado */
+            color: #e5e7eb;
+            border-right: 1px solid #374151;
+            cursor: pointer; 
+            user-select: none; 
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            font-weight: 500; /* Un poco de peso para legibilidad */
+            letter-spacing: 0.01em; /* Un poco de espacio entre letras */
+        }
+        
+        /* Animación suave al presionar */
+        .product-cell:active {
+            background-color: rgba(34, 211, 238, 0.1);
+        }
+
+        .qty-cell {
+            text-align: center;
+            font-weight: bold;
+            color: #a3e635;
+            background-color: rgba(17, 24, 39, 0.5);
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 0.95rem; /* Mantener números legibles */
+        }
+        .qty-cell:hover {
+            background-color: #374151;
+            text-decoration: underline;
+        }
+        .zero-qty { color: #9ca3af !important; }
+
+        /* Estilos de Estado Checklist */
+        .status-ok { background-color: rgba(6, 78, 59, 0.4) !important; color: #4ade80 !important; } /* Verde oscuro */
+        .status-error { background-color: rgba(127, 29, 29, 0.4) !important; color: #f87171 !important; } /* Rojo oscuro */
+
+        /* --- TEMA CLARO --- */
+        .light-theme body { background-color: #f3f4f6; color: #1f2937; }
+        .light-theme .main-container { background-color: #ffffff; border-color: #cbd5e1; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .light-theme .neon-title { color: #2563eb; text-shadow: none; }
+        .light-theme .accent-text { color: #2563eb; }
+        
+        /* Tabla Claro */
+        .light-theme #inventory-table { border-color: #e5e7eb; }
+        .light-theme .table-header { background-color: #bfdbfe; color: #1e40af; border-bottom: 1px solid #93c5fd; }
+        .light-theme .table-data { border-bottom: 1px solid #e5e7eb; }
+        .light-theme .product-cell { color: #1f2937; border-right: 1px solid #e5e7eb; }
+        .light-theme .table-row:hover { background-color: #f0f9ff; }
+        .light-theme .qty-cell { background-color: #ecfdf5; color: #059669; }
+        .light-theme .qty-cell:hover { background-color: #d1fae5; }
+        .light-theme .zero-qty { color: #6b7280 !important; }
+
+        /* Labels para los equipos en footer claro */
+        .light-theme .team-label-bg { background-color: #e2e8f0; }
+
+        /* Efecto Clickable para el Header */
+        .header-team-box {
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        .header-team-box:hover {
+            transform: translateY(-2px);
+            background-color: rgba(31, 41, 55, 0.8); /* gray-800 con más opacidad */
+        }
+        .header-team-box:active {
+            transform: scale(0.98);
+        }
+
+        /* --- ESTILOS DE LA NUEVA CALCULADORA --- */
+        .calc-container {
+            width: 320px;
+            background-color: #202020;
+            border: 1px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .calc-header {
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            color: #d1d5db;
+        }
+
+        .display-area {
+            padding: 20px;
+            text-align: right;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            word-break: break-all;
+        }
+
+        .previous-op {
+            color: #a0a0a0;
+            font-size: 13px; /* Un poco más pequeño para que quepa más historial */
+            min-height: 20px;
+            margin-bottom: 5px;
+            /* Quitamos el truncate agresivo para intentar mostrar más si es posible, o usamos scroll */
+            overflow-x: auto; 
+            white-space: nowrap;
+            scrollbar-width: thin; /* Firefox */
+        }
+        /* Scrollbar para el historial */
+        .previous-op::-webkit-scrollbar { height: 4px; }
+        .previous-op::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 2px; }
+
+        .current-val {
+            font-size: 48px;
+            font-weight: 600;
+            line-height: 1;
+            overflow: hidden;
+            color: white;
+        }
+
+        .grid-pad {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2px;
+            padding: 2px;
+            background-color: #202020;
+        }
+
+        /* Usamos clase específica .calc-btn para no afectar botones globales */
+        .calc-btn {
+            height: 54px;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            background-color: #3b3b3b;
+            color: white;
+            transition: background-color 0.1s;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .calc-btn:hover { background-color: #323232; }
+        .op-btn { background-color: #323232; }
+        .op-btn:hover { background-color: #3b3b3b; }
+        .num-btn { background-color: #3b3b3b; font-weight: bold; }
+        .num-btn:hover { background-color: #2c2c2c; }
+        
+        .equal-btn { background-color: #76b9ed; color: black; }
+        .equal-btn:hover { background-color: #5da0d4; }
+        
+        /* Botones especiales de acción inferior */
+        .action-btn { font-size: 14px; font-weight: bold; text-transform: uppercase; }
+        .action-cancel { background-color: #7f1d1d; color: #fecaca; }
+        .action-cancel:hover { background-color: #991b1b; }
+        .action-save { background-color: #65a30d; color: white; }
+        .action-save:hover { background-color: #4d7c0f; }
+
+        /* --- ESTILOS DE LA PANTALLA DE AGRADECIMIENTO (OVERLAY) --- */
+        #celebration-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            z-index: 9999; /* Muy alto para tapar todo */
+            display: none; /* Oculto por defecto */
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            /* OPTIMIZACIÓN: Evita repintados pesados */
+            contain: strict;
+        }
+
+        #celebration-overlay .container-celeb {
+            text-align: center;
+            position: relative;
+            z-index: 100;
+            width: 90%;
+            max-width: 600px;
+            pointer-events: none;
+        }
+
+        #celebration-overlay .explode-btn {
+            background-color: var(--primary-celebration);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.2);
+            padding: 1.5rem 3rem;
+            font-size: 1.4rem;
+            font-weight: 800;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 25px rgba(99, 102, 241, 0.5);
+            outline: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            pointer-events: auto; /* El botón sí debe recibir clics */
+        }
+
+        #celebration-overlay .explode-btn:hover {
+            transform: scale(1.05);
+            background-color: #4f46e5;
+        }
+
+        /* Estilos del Botón Regresar */
+        #celebration-overlay .back-btn {
+            margin-top: 30px;
+            background-color: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            pointer-events: auto; /* IMPORTANTE: Para que sea clickeable */
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #celebration-overlay .back-btn:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        #celebration-overlay .back-btn:active {
+            transform: translateY(0);
+        }
+
+        #thanks-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            width: 100%;
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #ffffff;
+            opacity: 0;
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-shadow: 0 0 20px rgba(99, 102, 241, 0.8), 0 0 40px rgba(255, 255, 255, 0.3);
+            line-height: 1.2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #thanks-message.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* Partículas y Confeti - OPTIMIZADO */
+        .particle, .confetti {
+            position: absolute;
+            pointer-events: none;
+            /* IMPORTANTE: Promoción a GPU */
+            will-change: transform, opacity;
+            backface-visibility: hidden;
+            transform: translate3d(0,0,0);
+        }
+
+        /* --- GLOBOS REALISTAS - OPTIMIZADO --- */
+        .balloon {
+            position: absolute;
+            bottom: -150px; 
+            width: 60px;
+            height: 75px;
+            /* El color se establece dinámicamente vía variable CSS */
+            background-color: var(--balloon-color, #22d3ee); 
+            /* Degradados para efecto 3D y brillo especular */
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.6) 8%, rgba(255,255,255,0) 20%), 
+                        radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1) 0%, rgba(0,0,0,0.15) 100%),
+                        var(--balloon-color);
+            
+            border-radius: 80% 80% 80% 80% / 80% 80% 90% 90%;
+            box-shadow: inset -5px -10px 20px rgba(0, 0, 0, 0.2), /* Sombra interior */
+                        2px 5px 10px rgba(0,0,0,0.1); /* Sombra proyectada */
+            z-index: 50;
+            /* IMPORTANTE: Promoción a GPU */
+            will-change: transform, bottom;
+            transform-origin: bottom center;
+            backface-visibility: hidden;
+        }
+        
+        .balloon::before { /* Cuerda (String) */
+            content: '';
+            position: absolute;
+            bottom: -60px; /* Un poco más larga */
+            left: 50%;
+            width: 1px;
+            height: 60px;
+            background: rgba(230, 230, 230, 0.9);
+            transform: translateX(-50%);
+            z-index: -1;
+            transform-origin: top center;
+            /* ANIMACIÓN DE LA CUERDA */
+            animation: stringWave 3s ease-in-out infinite;
+        }
+        
+        .balloon::after { /* Nudo (Knot) */
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            width: 12px;
+            height: 10px;
+            background-color: var(--balloon-color);
+            /* Forma de trapecio para el nudo */
+            clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+            border-radius: 2px;
+            transform: translateX(-50%);
+            box-shadow: inset -2px -2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* Animación para que el globo suba y se quede */
+        @keyframes floatUpAndStay {
+            0% { 
+                bottom: -150px; 
+                transform: translateX(0) rotate(0deg); 
+            }
+            100% { 
+                bottom: var(--float-final-y, 85%); /* Van al techo */
+                transform: translateX(var(--drift-x, 0px)) rotate(var(--rot, 5deg)); 
+            }
+        }
+        
+        /* Animación de oscilación del cuerpo del globo */
+        @keyframes sway {
+            0%, 100% { transform: translateX(0) rotate(-3deg); }
+            50% { transform: translateX(15px) rotate(3deg); }
+        }
+
+        /* NUEVA: Animación de la cuerda para que se mueva más natural */
+        @keyframes stringWave {
+            0%, 100% { transform: translateX(-50%) rotate(5deg); }
+            50% { transform: translateX(-50%) rotate(-5deg); }
+        }
+
+        @keyframes explodeOut {
+            0% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+            100% { transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)) scale(0); opacity: 0; }
+        }
+
+        @keyframes fallToFloor {
+            0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+            100% { transform: translate3d(var(--drift), var(--floor-y), 0) rotate(720deg); }
+        }
+
+        .jump {
+            animation: jumpEffect 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+        }
+
+        @keyframes jumpEffect {
+            0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+            50% { transform: translate3d(var(--jx), var(--jy), 0) rotate(180deg); }
+            100% { transform: translate3d(var(--jx), 0, 0) rotate(360deg); }
+        }
+
+        .on-floor {
+            position: absolute;
+            bottom: 0;
+            pointer-events: none;
+        }
+        
+        /* ANIMACIÓN DE TEXTO LLAMATIVO */
+        .blink-text {
+            animation: blinker 1.5s linear infinite;
+        }
+        @keyframes blinker {
+            50% { opacity: 0.5; transform: scale(0.98); }
+        }
+
+    </style>
+</head>
+<body class="p-2 md:p-6 min-h-screen">
+
+    <div class="max-w-4xl mx-auto bg-gray-900 p-4 md:p-8 rounded-2xl shadow-2xl border border-cyan-900 main-container">
+        <!-- ... (Contenido principal sin cambios) ... -->
+        <header class="mb-4">
+            <!-- Cabecera tipo Reporte -->
+            <div class="border border-gray-700 p-4 rounded-xl mb-6 bg-gray-800/50 light-theme:bg-white light-theme:border-blue-200 transition-colors">
+                <!-- Fila 1: ORGANISMO Y FECHA -->
+                <div class="flex flex-col md:flex-row justify-between md:items-center border-b border-gray-700 pb-2 mb-2 light-theme:border-gray-200">
+                    <p class="text-xs font-bold text-cyan-400 light-theme:text-blue-600 tracking-wide mb-1 md:mb-0">CECOSESOLA J085030140</p>
+                    <p class="text-xs text-gray-400 light-theme:text-gray-500">FECHA: <span id="report-date" class="font-semibold text-gray-200 light-theme:text-gray-800"></span></p>
+                </div>
+                
+                <!-- Fila 2: PASILLO Y RESPONSABLES -->
+                <div class="flex flex-col md:flex-row justify-between items-start gap-4">
+                    <div class="mb-2 md:mb-0 flex-1">
+                        <h2 class="text-2xl md:text-3xl font-extrabold text-cyan-400 neon-title light-theme:text-blue-700 uppercase"> ★-PASILLO CAFE-★ </h2>
+                        <h3 class="text-lg font-bold text-gray-300 light-theme:text-gray-600">FERIA DEL ESTE</h3>
+                    </div>
+                    
+                    <!-- Contenedor de Equipos Separados -->
+                    <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                        <!-- EQUIPO 1 (ROJO) - CLICKABLE -->
+                        <div onclick="openTeamModal()" class="header-team-box text-sm bg-gray-900/50 p-2 rounded light-theme:bg-gray-100 border-l-4 border-red-500 pl-3 flex-1 min-w-[140px]" title="Clic para editar nombres">
+                            <p class="text-[10px] text-red-400 font-bold mb-1 uppercase tracking-wider flex justify-between items-center">
+                                TU NOMBREs <span class="text-gray-500 text-[9px] font-normal lowercase">(editar)</span>
+                            </p>
+                            <p class="text-gray-400 light-theme:text-gray-500 text-xs">RESPONSABLE: <span id="resp1-display" class="font-semibold text-white light-theme:text-gray-800 uppercase block truncate">SIN NOMBRE</span></p>
+                            <!-- <p class="text-gray-400 light-theme:text-gray-500 text-xs">RESP 2: <span id="resp2-display" class="font-semibold text-white light-theme:text-gray-800 uppercase block truncate">SIN NOMBRE</span></p> -->
+                        </div>
+                        
+                        <!-- EQUIPO 2 (VERDE) - CLICKABLE -->
+                        <div onclick="openTeamModal()" class="header-team-box text-sm bg-gray-900/50 p-2 rounded light-theme:bg-gray-100 border-l-4 border-green-500 pl-3 flex-1 min-w-[140px]" title="Clic para editar nombres">
+                             <p class="text-[10px] text-green-400 font-bold mb-1 uppercase tracking-wider flex justify-between items-center">
+                                COMPAÑERO <span class="text-gray-500 text-[9px] font-normal lowercase">(editar)</span>
+                            </p>
+                            <p class="text-gray-400 light-theme:text-gray-500 text-xs">RESPONSABLE: <span id="resp3-display" class="font-semibold text-white light-theme:text-gray-800 uppercase block truncate">SIN NOMBRE</span></p>
+                            <!-- <p class="text-gray-400 light-theme:text-gray-500 text-xs">RESP 4: <span id="resp4-display" class="font-semibold text-white light-theme:text-gray-800 uppercase block truncate">SIN NOMBRE</span></p> -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barra de Búsqueda y Botones de Acción (STICKY) -->
+            <div class="sticky top-2 z-20 bg-gray-900/95 p-3 rounded-xl backdrop-blur-md shadow-2xl border border-gray-700/50 light-theme:bg-white/95 light-theme:border-gray-200 transition-all mb-4">
+                
+                <!-- Barra de Búsqueda -->
+                <div class="mb-3 relative group">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500 group-focus-within:text-cyan-400 light-theme:text-gray-400 light-theme:group-focus-within:text-blue-500 transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <input type="text" id="search-filter" 
+                        class="block w-full pl-10 pr-10 p-2.5 rounded-lg border border-gray-600 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all light-theme:bg-gray-50 light-theme:border-gray-300 light-theme:text-gray-900 light-theme:focus:ring-blue-500 text-sm md:text-base shadow-inner" 
+                        placeholder="🔍 Escribe para buscar producto..." 
+                        autocomplete="off"
+                        oninput="applyFilter(this.value)">
+                    
+                    <!-- Botón limpiar (X) -->
+                    <button id="clear-search-btn" onclick="clearSearch()" class="absolute inset-y-0 right-0 pr-3 flex items-center hidden text-gray-500 hover:text-white light-theme:hover:text-red-500 transition-colors cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="flex justify-end space-x-3 items-center">
+                    <!-- SE AGREGÓ 'no-scrollbar' AQUÍ PARA OCULTAR LA BARRA -->
+                    <div class="flex space-x-2 md:space-x-3 overflow-x-auto pb-1 md:pb-0 w-full md:w-auto justify-end no-scrollbar">
+                        <button 
+                            id="toggle-theme-btn"
+                            onclick="toggleTheme()"
+                            class="p-2 rounded-full text-cyan-400 hover:bg-gray-700 transition duration-200 border border-transparent hover:border-gray-600 light-theme:hover:bg-blue-100 light-theme:text-blue-600 flex-shrink-0"
+                            aria-label="Cambiar tema"
+                        >
+                            <!-- Luna -->
+                            <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 12.001 12.001 0 0012 21a12.001 12.001 0 008.354-5.646z" />
+                            </svg>
+                            <!-- Sol -->
+                            <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                        </button>
+
+                        <!-- Botón Reset (Borrar Todo) -->
+                        <button 
+                            onclick="openResetModal()"
+                            class="bg-red-600/80 hover:bg-red-500 text-white p-2 rounded-xl shadow-lg transition duration-200 transform hover:scale-105 active:scale-95 flex-shrink-0"
+                            title="Borrar todos los datos y empezar de nuevo"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                        
+                        <!-- Botón Agregar Producto -->
+                        <button 
+                        onclick="openAddProductModal()"
+                        class="bg-purple-600 hover:bg-purple-500 text-white p-2 rounded-xl shadow-lg transition duration-200 transform hover:scale-105 active:scale-95 font-bold flex items-center flex-shrink-0"
+                        title="Agregar un producto nuevo a la lista"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 md:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span class="hidden md:inline">Agregar</span>
+                    </button>
+
+                        <button 
+                            onclick="downloadExcel()"
+                            class="bg-lime-500 hover:bg-lime-400 text-gray-900 font-bold py-2 px-4 rounded-xl shadow-lg transition duration-200 flex items-center transform hover:scale-105 active:scale-95 text-sm md:text-base flex-shrink-0"
+                            title="Descargar datos en formato Excel (.xlsx)"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L10 11.586l2.293-2.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                            Descargar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tabla de Inventario -->
+        <div class="mt-4 overflow-x-auto no-scrollbar"> <!-- TAMBIÉN OCULTA EN LA TABLA POR SI ACASO -->
+            <table id="inventory-table">
+                <thead>
+                    <tr>
+                        <th class="table-header text-left w-[75%] md:w-[80%] pl-4 sticky left-0 z-10">PRODUCTO / CHECKLIST</th>
+                        <th class="table-header w-[25%] md:w-[20%]">CANTIDAD</th>
+                    </tr>
+                </thead>
+                <tbody id="inventory-list">
+                    <!-- Filas generadas por JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer / Resumen -->
+        <footer class="mt-8 pt-6 border-t-4 border-cyan-600 bg-gray-800 rounded-lg p-4 shadow-xl footer-container transition-colors">
+            <div class="flex flex-col sm:flex-row items-start justify-between gap-6">
+                
+                <!-- Contador -->
+                <div class="w-full sm:w-1/3 flex flex-col"> 
+                    <p class="text-lg font-bold text-cyan-400 mb-2 accent-text uppercase">CANTIDAD DE PRODUCTOS :</p>
+                    <div class="flex-grow bg-cyan-600/20 border border-cyan-600/50 rounded-xl p-4 flex items-center justify-center min-h-[100px]">
+                        <span id="stocked-products-count" class="text-5xl font-extrabold text-cyan-400 light-theme:text-blue-600">0</span>
+                    </div>
+                </div>
+                
+                <!-- Inputs Responsables SEPARADOS POR EQUIPO (Sincronizados con el Header/Modal) -->
+                <div class="w-full sm:w-2/3 flex flex-col sm:pl-4 sm:border-l border-gray-600 light-theme:border-gray-300">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        
+                        <!-- EQUIPO 1: ROJO -->
+                        <div class="relative pt-4 pb-3 px-3 rounded-xl border border-red-500/50 bg-red-900/10 light-theme:bg-red-50 light-theme:border-red-300">
+                            <div class="absolute -top-3 left-3 bg-gray-800 uppercase  light-theme:team-label-bg px-2 rounded border border-red-500/50 text-xs font-bold text-red-400">-TU NOMBRE-</div>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-400 light-theme:text-gray-600 uppercase block mb-1">Responsable:</label>
+                                    <input type="text" id="responsable-1" placeholder="Nombre" class="w-full p-2 rounded border border-red-900/60 focus:border-red-500 bg-gray-900 text-white focus:ring-1 focus:ring-red-500 outline-none transition-colors text-sm light-theme:bg-white light-theme:border-red-200 light-theme:text-gray-800" oninput="updateReportHeaders(true)">
+                                </div>
+                                <!-- <div>
+                                    <label class="text-xs font-semibold text-gray-400 light-theme:text-gray-600 uppercase block mb-1">Responsable 2</label>
+                                    <input type="text" id="responsable-2" placeholder="Nombre" class="w-full p-2 rounded border border-red-900/60 focus:border-red-500 bg-gray-900 text-white focus:ring-1 focus:ring-red-500 outline-none transition-colors text-sm light-theme:bg-white light-theme:border-red-200 light-theme:text-gray-800" oninput="updateReportHeaders(true)">
+                                </div> -->
+                            </div>
+                        </div>
+
+                        <!-- EQUIPO 2: VERDE -->
+                        <div class="relative pt-4 pb-3 px-3 rounded-xl border border-green-500/50 bg-green-900/10 light-theme:bg-green-50 light-theme:border-green-300">
+                            <div class="absolute -top-3 left-3 bg-gray-800 uppercase light-theme:team-label-bg px-2 rounded border border-green-500/50 text-xs font-bold text-green-400">-COMPAÑERO-</div>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-xs font-semibold text-gray-400 light-theme:text-gray-600 uppercase block mb-1">Responsable</label>
+                                    <input type="text" id="responsable-3" placeholder="Nombre" class="w-full p-2 rounded border border-green-900/60 focus:border-green-500 bg-gray-900 uppercase text-white focus:ring-1 focus:ring-green-500 outline-none transition-colors text-sm light-theme:bg-white light-theme:border-green-200 light-theme:text-gray-800" oninput="updateReportHeaders(true)">
+                                </div>
+                                <!-- <div>
+                                    <label class="text-xs font-semibold text-gray-400 light-theme:text-gray-600 uppercase block mb-1">Responsable 4</label>
+                                    <input type="text" id="responsable-4" placeholder="Nombre" class="w-full p-2 rounded border border-green-900/60 focus:border-green-500 bg-gray-900 text-white focus:ring-1 focus:ring-green-500 outline-none transition-colors text-sm light-theme:bg-white light-theme:border-green-200 light-theme:text-gray-800" oninput="updateReportHeaders(true)">
+                                </div> -->
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Estado de LocalStorage -->
+            <div class="mt-4 pt-4 border-t border-gray-700 text-xs text-gray-500">
+                <p>Estado de Guardado: <span id="connection-status" class="font-semibold text-lime-400">Guardado Automaticamente </span></p>
+                <p class="mt-1 text-gray-500">💡 Tip: Haz clic en el nombre del producto para marcarlo como <span class="text-green-400">Verificado</span> o <span class="text-red-400">Discrepancia</span>. <span class="text-cyan-400 font-bold">¡Mantén presionado para Editar!</span></p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modal Calculadora Estándar -->
+    <div id="calculator-modal" class="modal-overlay" onclick="if(event.target === this) window.closeCalculator()">
+        <div class="calc-container" onclick="event.stopPropagation()">
+            <!-- Título superior -->
+            <div class="calc-header">
+                <div class="flex items-center gap-3 w-full">
+                    <span>&#9776;</span>
+                    <span class="font-semibold truncate w-full" id="calc-product-name">Producto</span>
+                </div>
+            </div>
+
+            <!-- Pantalla de resultados -->
+            <div class="display-area">
+                <div id="prev-operation" class="previous-op"></div>
+                <div id="display" class="current-val">0</div>
+            </div>
+
+            <!-- Teclado Numérico y Funciones -->
+            <div class="grid-pad">
+                <button class="calc-btn" onclick="appendOperator('%')">%</button>
+                <button class="calc-btn" onclick="clearEntry()">CE</button>
+                <button class="calc-btn" onclick="allClear()">C</button>
+                <button class="calc-btn" onclick="deleteLast()"><span style="font-size: 20px;">&#9003;</span></button>
+                
+                <button class="calc-btn" onclick="specialOp('1/x')"><sup>1</sup>/<sub>x</sub></button>
+                <button class="calc-btn" onclick="specialOp('x2')">x&sup2;</button>
+                <button class="calc-btn" onclick="specialOp('sqrt')">&radic;x</button>
+                <button class="calc-btn op-btn" onclick="appendOperator('/')">&divide;</button>
+                
+                <button class="calc-btn num-btn" onclick="appendNumber('7')">7</button>
+                <button class="calc-btn num-btn" onclick="appendNumber('8')">8</button>
+                <button class="calc-btn num-btn" onclick="appendNumber('9')">9</button>
+                <button class="calc-btn op-btn" onclick="appendOperator('*')">&times;</button>
+                
+                <button class="calc-btn num-btn" onclick="appendNumber('4')">4</button>
+                <button class="calc-btn num-btn" onclick="appendNumber('5')">5</button>
+                <button class="calc-btn num-btn" onclick="appendNumber('6')">6</button>
+                <button class="calc-btn op-btn" onclick="appendOperator('-')">&minus;</button>
+                
+                <button class="calc-btn num-btn" onclick="appendNumber('1')">1</button>
+                <button class="calc-btn num-btn" onclick="appendNumber('2')">2</button>
+                <button class="calc-btn num-btn" onclick="appendNumber('3')">3</button>
+                <button class="calc-btn op-btn" onclick="appendOperator('+')">+</button>
+                
+                <button class="calc-btn" onclick="toggleSign()">+/-</button>
+                <button class="calc-btn num-btn" onclick="appendNumber('0')">0</button>
+                <button class="calc-btn" onclick="appendNumber('.')">,</button>
+                <button class="calc-btn equal-btn" onclick="calculate(true)">=</button>
+            </div>
+            
+            <!-- Acciones de Guardado -->
+            <div class="grid grid-cols-2 gap-0 border-t border-gray-700">
+                <button onclick="window.closeCalculator()" class="calc-btn action-btn action-cancel">Cancelar</button>
+                <button onclick="window.saveAndClose()" class="calc-btn action-btn action-save">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Agregar Producto (MODIFICADO: AHORA EN LA PARTE SUPERIOR) -->
+    <div id="add-product-modal" class="modal-overlay" style="align-items: flex-start; padding-top: 5rem;" onclick="if(event.target === this) closeAddProductModal()">
+        <!-- ... (Contenido modal sin cambios) ... -->
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm mx-4 transform transition-all border border-purple-500">
+            <h3 class="text-xl font-bold text-purple-400 mb-4 uppercase">➕ Nuevo Producto</h3>
+            <p class="text-gray-300 mb-4 text-sm">Ingresa el nombre del producto que deseas añadir a la lista.</p>
+            
+            <input type="text" id="new-product-name" placeholder="Ej: Pan de Molde Integral" class="w-full p-3 rounded-lg bg-gray-900 border border-gray-600 text-white mb-6 focus:ring-2 focus:ring-purple-500 outline-none">
+            
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeAddProductModal()" class="py-2 px-4 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition">Cancelar</button>
+                <button onclick="confirmAddProduct()" class="py-2 px-4 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-500 transition shadow-lg">Agregar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar Producto (NUEVO) -->
+    <div id="edit-product-modal" class="modal-overlay" onclick="if(event.target === this) closeEditProductModal()">
+        <!-- ... (Contenido modal sin cambios) ... -->
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm mx-4 transform transition-all border border-blue-500">
+            <h3 class="text-xl font-bold text-blue-400 mb-4 uppercase">✏️ Editar Nombre</h3>
+            <p class="text-gray-300 mb-4 text-sm">Modifica el nombre del producto. La lista se reordenará automáticamente.</p>
+            
+            <input type="text" id="edit-product-name" class="w-full p-3 rounded-lg bg-gray-900 border border-gray-600 text-white mb-6 focus:ring-2 focus:ring-blue-500 outline-none">
+            
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeEditProductModal()" class="py-2 px-4 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition">Cancelar</button>
+                <button onclick="confirmEditProduct()" class="py-2 px-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 transition shadow-lg">Guardar</button>
+            </div>
+
+            <!-- Botón Eliminar -->
+            <div class="mt-4 pt-4 border-t border-gray-700">
+                 <button onclick="deleteProductConfirmed()" class="w-full py-2 px-4 bg-red-900/50 text-red-300 font-bold rounded-lg hover:bg-red-900 transition border border-red-800 text-sm">🗑️ Eliminar Producto</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Gestionar Equipos (MODIFICADO: MAS ARRIBA Y COMPACTO) -->
+    <div id="team-modal" class="modal-overlay" style="align-items: flex-start; padding-top: 2rem;" onclick="if(event.target === this) closeTeamModal()">
+        <!-- ... (Contenido modal sin cambios) ... -->
+        <!-- CAMBIO AQUI: Se cambió bg-gray-800 por bg-[#111111] para el negro mate -->
+        <div class="bg-[#111111] p-4 md:p-6 rounded-xl shadow-2xl w-full max-w-md mx-4 transform transition-all border border-cyan-600">
+            <h1 class="text-2X1 font-bold text-cyan-400 mb-3 uppercase text-center border-b border-gray-900 pb-2">👥 Responsables del inventario</h1>
+            <!-- Etiqueta Llamativa NUEVA -->
+                        <span class="mt-1 text-[14px] bg-red-500/20 text-red-300 border border-red-500 p-1 rounded text-center blink-text font-extrabold tracking-wider">
+                            🚨 ¡RESPONSABLE DEL INVENTARIO 
+                            
+                         </span>
+                          <div style="height: 8px;"></div>
+                                <span class="mt-1 text-[14px] bg-red-500/20 text-red-300 border border-red-500 p-1 rounded text-center blink-text font-extrabold tracking-wider">
+                                 ANOTARSE POR FAVOR 🚨
+
+                                </span>
+                            
+                        </span>
+                        <div style="height: 28px;"></div> 
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <!-- Columna Equipo 1 (MODIFICADA CON TEXTO LLAMATIVO) -->
+                <div class="space-y-2">
+                    <div class="flex flex-col">
+                        <h4 class="text-red-400 font-bold text-[14px] uppercase border-b border-red-500/30 pb-1">NOMBRE PERSONAL</h4>
+                        
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-gray-400 uppercase block mb-0.5">RESPONSABLE</label>
+                        <input type="text" id="modal-resp-1" class="w-full p-1.5 rounded bg-gray-900  uppercase border border-red-900 focus:border-red-500 text-white text-sm outline-none">
+                    </div>
+                    <!-- <div>
+                        <label class="text-[9px] text-gray-400 uppercase block mb-0.5">Responsable 2</label>
+                        <input type="text" id="modal-resp-2" class="w-full p-1.5 rounded bg-gray-900 border border-red-900 focus:border-red-500 text-white text-sm outline-none">
+                    </div> -->
+                </div>
+
+                <!-- Columna Equipo 2 -->
+                <div class="space-y-2">
+                    <h4 class="text-green-400 font-bold text-[14px] uppercase border-b border-green-500/30 pb-1 mt-0">DE TU COMPAÑERO</h4>
+                     <!-- Espaciador
+                       para alinear con la columna 1 que tiene el aviso -->
+                    <!-- <div style="height: 28px;"></div>  -->
+                    <div>
+                        <label class="text-[9px] text-gray-400 uppercase block mb-0.5">Responsable</label>
+                        <input type="text" id="modal-resp-3" class="w-full p-1.5 rounded bg-gray-900 uppercase  border border-green-900  focus:border-green-500 text-white text-sm outline-none">
+                    </div>
+                    <!-- <div>
+                        <label class="text-[9px] text-gray-400 uppercase block mb-0.5">Responsable 4</label>
+                        <input type="text" id="modal-resp-4" class="w-full p-1.5 rounded bg-gray-900 border border-green-900 focus:border-green-500 text-white text-sm outline-none">
+                    </div> -->
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-3 border-t border-gray-700">
+                <button onclick="closeTeamModal()" class="py-1.5 px-3 bg-gray-700 text-white text-sm rounded-lg hover:bg-gray-600 transition">Cancelar</button>
+                <button onclick="saveTeamModal()" class="py-1.5 px-4 bg-cyan-600 text-white font-bold text-sm rounded-lg hover:bg-cyan-500 transition shadow-lg">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación para Borrar Todo -->
+    <div id="reset-modal" class="modal-overlay" onclick="if(event.target === this) closeResetModal()">
+        <!-- ... (Contenido modal sin cambios) ... -->
+        <div class="bg-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-sm mx-4 transform transition-all border border-red-700">
+            <h3 class="text-xl font-bold text-red-400 mb-4">⚠️ Confirmar Borrado Total</h3>
+            <p class="text-gray-300 mb-6">Estás a punto de **eliminar todo el inventario** del almacenamiento local de tu navegador. Esta acción no se puede deshacer.</p>
+            <p class="text-yellow-400 text-xs mb-4 p-2 bg-gray-900/50 rounded border border-yellow-600/30">NOTA: Se eliminarán todos los productos agregados manualmente y se restablecerá la lista original.</p>
+            <p class="text-white font-semibold mb-6">¿Estás absolutamente seguro de que deseas continuar?</p>
+            <div class="flex justify-end space-x-4">
+                <button onclick="closeResetModal()" class="py-2 px-4 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition">Cancelar</button>
+                <button onclick="resetAllDataConfirmed()" class="py-2 px-4 bg-red-600 text-white font-bold rounded-lg hover:bg-red-500 transition shadow-lg">Sí, Borrar Todo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA DE AGRADECIMIENTO / CELEBRACIÓN -->
+    <div id="celebration-overlay">
+        <!-- ... (Contenido celebración sin cambios) ... -->
+        <div class="container-celeb">
+            <!-- NOTA: Este botón se ocultará automáticamente al descargar -->
+            <button class="explode-btn" id="celeb-mainButton">
+                ¡Finalizar Inventario!
+            </button>
+            <div id="thanks-message">
+                <p>¡Gracias por participar en el inventario! 🎉</p>
+                <button id="celeb-backButton" class="back-btn">
+                    Regresar
+                </button>
+            </div>
+        </div>
+        <!-- Contenedor para los globos (generado dinámicamente) -->
+        <div id="balloons-container" style="position: absolute; width: 100%; height: 100%; pointer-events: none; overflow: hidden; top: 0; left: 0;"></div>
+    </div>
+
+    <script>
+        // --- CONSTANTES Y ESTRUCTURA DE DATOS ---
+        const LOCAL_STORAGE_KEY = 'Pasillo 1 InventoryData_v2'; 
+        
+        // Variable global para disparar la fiesta desde cualquier lugar
+        window.triggerCelebration = null;
+
+const defaultProductNames = [
+              "ACEITE AGROIL *12",
+  "ACEITE MI ACEITE *12",
+  "ACEITE NATUROIL",
+  "ACEITE PORTUMESA",
+  "ACEITE VATEL DE LITRO *12",
+  "ATUN DIPOLATICO *48",
+  "ATUN PACIFICO *48",
+  "ATUN PEÑERO AZUL *48",
+  "ATUN PEÑERO VERDE *12",
+  "AVENA DE VITA",
+  "AVENA DON JORGE",
+  "AVENA QUAKER",
+  "CAFÉ CORDILLERA 200GRMS",
+  "CAFÉ CORDILLERA 500 GRMS",
+  "CAFÉ EN GRANO 250GR DULCE AMAR",
+  "CAFÉ EN GRANO 400GRMS",
+  "CAFÉ EN GRANO COROMOTANA",
+  "CAFÉ LO NUESTRO",
+  "CAFÉ MATILDE",
+  "CAFÉ VARINA",
+  "CARNE DE SOYA",
+  "FORORO VALLE HONDO",
+  "HARINA DE AVENA QUAKER",
+  "HARINA DE TRIGO ESPECIAL LEUDANTE",
+  "HARINA DE TRIGO ESPECIAL TODO USO",
+  "HARINA DE TRIGO MARY",
+  "HARINA TRIGO DULCE MAR",
+  "LECHE LA CAMPIÑA",
+  "LECHE MONTAÑA FRESCA",
+  "LECHE VALLELAC",
+  "SARDINA",
+  "SARDINA INCOSA",
+  "SARDINA VEMPOR",
+  "TAMARINDO EL ESFUERZO"
+];
+
+
+        // Función para generar la estructura de inventario inicial
+        const getInitialInventoryData = () => ({
+            inventory: defaultProductNames.map(name => ({
+                name: name,
+                quantity: 0,
+                history: "0",
+                status: null, // Nuevo campo para checklist (null | 'ok' | 'error')
+                hasErrorHistory: false // NUEVO: Rastrea si alguna vez fue marcado como error
+            })),
+            responsable1: "SIN NOMBRE",
+            // responsable2: "SIN NOMBRE",
+            responsable3: "SIN NOMBRE",
+            // responsable4: "SIN NOMBRE"
+        });
+
+        // --- MANEJO DE LOCALSTORAGE ---
+
+        let inventoryData = [];
+        let responsables = { resp1: "SIN NOMBRE", resp3: "SIN NOMBRE" };
+        let currentFilter = ""; // VARIABLE GLOBAL PARA EL FILTRO
+
+        window.loadInventoryDataFromLocal = function() {
+            try {
+                const storedDataJson = localStorage.getItem(LOCAL_STORAGE_KEY);
+                
+                if (storedDataJson) {
+                    const storedData = JSON.parse(storedDataJson);
+                    
+                    responsables.resp1 = storedData.responsable1 || "SIN NOMBRE";
+                    // responsables.resp2 = storedData.responsable2 || "SIN NOMBRE";
+                    responsables.resp3 = storedData.responsable3 || "SIN NOMBRE";
+                    // responsables.resp4 = storedData.responsable4 || "SIN NOMBRE";
+
+                    if (storedData.inventory && Array.isArray(storedData.inventory)) {
+                        inventoryData = storedData.inventory;
+                        // Migración para datos viejos que no tengan hasErrorHistory
+                        inventoryData.forEach(item => {
+                            if (typeof item.hasErrorHistory === 'undefined') {
+                                item.hasErrorHistory = (item.status === 'error');
+                            }
+                        });
+                        console.log("LocalStorage: Datos cargados.");
+                    }
+                } else {
+                    console.log("LocalStorage: No encontrado o vacío. Cargando defaults.");
+                    const initial = getInitialInventoryData();
+                    inventoryData = initial.inventory;
+                    responsables.resp1 = initial.responsable1;
+                    // responsables.resp2 = initial.responsable2;
+                    responsables.resp3 = initial.responsable3;
+                    // responsables.resp4 = initial.responsable4;
+                    window.saveInventoryData(false);
+                }
+
+                 // --- NUEVA LÓGICA: IMPORTAR USUARIO DEL LOGIN (INDEX) ---
+                // Leemos quien se logueó en la pantalla principal
+                const globalUser = localStorage.getItem('cecosesolaUser');
+
+                // Si existe un usuario logueado Y el Responsable 1 está vacío o es el default...
+                if (globalUser && (responsables.resp1 === "SIN NOMBRE" || responsables.resp1 === "")) {
+                    responsables.resp1 = globalUser; // Asignamos el nombre
+                    
+                    // Actualizamos el input visualmente de inmediato (por si acaso)
+                    const r1Input = document.getElementById('responsable-1');
+                    if(r1Input) r1Input.value = globalUser;
+
+                    // Guardamos este cambio para que quede fijo en el inventario
+                    window.saveInventoryData(false); 
+                    console.log(`Usuario importado del Login: ${globalUser}`);
+                }
+                // --------------------------------------------------------
+
+            } catch (e) {
+                console.error("Error al cargar localStorage.", e);
+                const initial = getInitialInventoryData();
+                inventoryData = initial.inventory;
+                responsables.resp1 = initial.responsable1;
+                // responsables.resp2 = initial.responsable2;
+                responsables.resp3 = initial.responsable3;
+                // responsables.resp4 = initial.responsable4;
+            }
+        }
+
+        window.saveInventoryData = function(updateStatus = true) {
+            const r1Input = document.getElementById('responsable-1');
+            // const r2Input = document.getElementById('responsable-2');
+            const r3Input = document.getElementById('responsable-3');
+            // const r4Input = document.getElementById('responsable-4');
+            
+            const responsable1 = r1Input ? r1Input.value : responsables.resp1;
+            // const responsable2 = r2Input ? r2Input.value : responsables.resp2;
+            const responsable3 = r3Input ? r3Input.value : responsables.resp3;
+            // const responsable4 = r4Input ? r4Input.value : responsables.resp4;
+            
+            responsables.resp1 = responsable1 || "SIN NOMBRE";
+            // responsables.resp2 = responsable2 || "SIN NOMBRE";
+            responsables.resp3 = responsable3 || "SIN NOMBRE";
+            // responsables.resp4 = responsable4 || "SIN NOMBRE";
+
+            const dataToSave = {
+                inventory: inventoryData,
+                responsable1: responsables.resp1,
+                // responsable2: responsables.resp2,
+                responsable3: responsables.resp3,
+                // responsable4: responsables.resp4,
+                lastUpdated: new Date().toISOString()
+            };
+
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave));
+                if (updateStatus) console.log("LocalStorage: Datos guardados.");
+                
+            } catch (e) {
+                console.error("ERROR: Fallo al guardar.", e);
+            }
+            
+            window.renderInventoryTable();
+            window.calculateTotalItems();
+        }
+
+        window.resetAllDataConfirmed = function() {
+            window.closeResetModal();
+            try {
+                // AL BORRAR, SE RESTAURA DESDE 'getInitialInventoryData', 
+                // LO CUAL ELIMINA LOS AGREGADOS MANUALMENTE.
+                localStorage.removeItem(LOCAL_STORAGE_KEY);
+                const initial = getInitialInventoryData();
+                inventoryData = initial.inventory;
+                responsables = { resp1: "SIN NOMBRE", resp3: "SIN NOMBRE",};
+                
+                document.getElementById('responsable-1').value = "";
+                // document.getElementById('responsable-2').value = "";
+                document.getElementById('responsable-3').value = "";
+                // document.getElementById('responsable-4').value = "";
+                
+                // Limpiar filtro al resetear
+                window.clearSearch();
+                
+                window.updateReportHeaders(false); 
+                window.saveInventoryData(false);
+                window.renderInventoryTable();
+                window.calculateTotalItems();
+                
+            } catch (e) {
+                console.error("ERROR: Fallo al borrar localStorage.", e);
+            }
+        }
+
+        // --- GESTIÓN DE BÚSQUEDA Y FILTRADO ---
+        window.applyFilter = function(value) {
+            currentFilter = value.toLowerCase().trim();
+            const clearBtn = document.getElementById('clear-search-btn');
+            
+            if (currentFilter.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            window.renderInventoryTable();
+        }
+
+        window.clearSearch = function(shouldFocus = true) {
+            currentFilter = "";
+            const input = document.getElementById('search-filter');
+            if(input) {
+                input.value = "";
+                if(shouldFocus) {
+                    input.focus();
+                } else {
+                    input.blur(); // Quitar foco para cerrar teclado en móviles
+                }
+            }
+            document.getElementById('clear-search-btn').classList.add('hidden');
+            window.renderInventoryTable();
+        }
+
+        // --- GESTIÓN DE PRODUCTOS NUEVOS ---
+        window.openAddProductModal = function() {
+            document.getElementById('new-product-name').value = "";
+            document.getElementById('add-product-modal').style.display = 'flex';
+            document.getElementById('new-product-name').focus();
+        }
+
+        window.closeAddProductModal = function() {
+            document.getElementById('add-product-modal').style.display = 'none';
+        }
+
+        window.confirmAddProduct = function() {
+            const nameInput = document.getElementById('new-product-name');
+            const newName = nameInput.value.trim().toUpperCase();
+
+            if (!newName) {
+                alert("Por favor escribe un nombre para el producto.");
+                return;
+            }
+
+            // 1. Agregar el producto
+            inventoryData.push({
+                name: newName,
+                quantity: 0,
+                history: "0",
+                status: null,
+                hasErrorHistory: false
+            });
+
+            // 2. Ordenar la lista alfabéticamente
+            inventoryData.sort((a, b) => a.name.localeCompare(b.name));
+
+            // Limpiar búsqueda para asegurar que se vea el nuevo producto
+            window.clearSearch();
+
+            // 3. Guardar y renderizar
+            window.saveInventoryData(true);
+            window.closeAddProductModal();
+            
+            // 4. Buscar el índice del nuevo producto ordenado
+            const newIndex = inventoryData.findIndex(item => item.name === newName);
+
+            setTimeout(() => {
+                const tableRows = document.getElementById('inventory-list').children;
+                if (tableRows[newIndex]) {
+                    const newRow = tableRows[newIndex];
+                    // Hacer scroll hasta el nuevo producto
+                    newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Resaltar
+                    newRow.classList.add('bg-purple-900/30');
+                    setTimeout(() => newRow.classList.remove('bg-purple-900/30'), 2000);
+
+                    // ABRIR CALCULADORA AUTOMÁTICAMENTE
+                    setTimeout(() => {
+                        window.openCalculator(newIndex, newName);
+                    }, 200);
+                }
+            }, 100);
+        }
+
+        // --- GESTIÓN DE EDICIÓN DE PRODUCTOS (LONG PRESS) ---
+        let pressTimer;
+        let longPressTriggered = false;
+        let editingProductIndex = null;
+
+        window.startLongPress = function(index) {
+            longPressTriggered = false;
+            // Iniciar temporizador (AUMENTADO A 5 SEGUNDOS)
+            pressTimer = setTimeout(() => {
+                longPressTriggered = true;
+                // Vibración háptica si es soportada
+                if (navigator.vibrate) navigator.vibrate(50);
+                window.openEditProductModal(index);
+            }, 5000); // <-- MODIFICADO: 5000ms (5 segundos)
+        }
+
+        window.endLongPress = function(event, index) {
+            clearTimeout(pressTimer);
+            longPressTriggered = false; 
+        }
+
+        window.cancelLongPress = function() {
+            clearTimeout(pressTimer);
+            longPressTriggered = false;
+        }
+
+        window.openEditProductModal = function(index) {
+            window.clearSearch(false); // Limpiar búsqueda al abrir editor
+            editingProductIndex = index;
+            const currentName = inventoryData[index].name;
+            document.getElementById('edit-product-name').value = currentName;
+            document.getElementById('edit-product-modal').style.display = 'flex';
+            document.getElementById('edit-product-name').focus();
+        }
+
+        window.closeEditProductModal = function() {
+            document.getElementById('edit-product-modal').style.display = 'none';
+            editingProductIndex = null;
+        }
+
+        window.confirmEditProduct = function() {
+            if (editingProductIndex === null) return;
+            
+            const nameInput = document.getElementById('edit-product-name');
+            const newName = nameInput.value.trim().toUpperCase();
+
+            if (!newName) {
+                alert("El nombre no puede estar vacío.");
+                return;
+            }
+
+            // 1. Actualizar nombre
+            inventoryData[editingProductIndex].name = newName;
+
+            // 2. Ordenar alfabéticamente
+            inventoryData.sort((a, b) => a.name.localeCompare(b.name));
+
+            // 3. Guardar y cerrar
+            window.saveInventoryData(true);
+            window.closeEditProductModal();
+        }
+
+        window.deleteProductConfirmed = function() {
+            if (editingProductIndex === null) return;
+            
+            const enteredCode = prompt("Ingrese la clave de seguridad para eliminar este producto:");
+
+            if (enteredCode === "124578963") {
+                if(confirm("Código correcto. ¿Estás seguro de que quieres eliminar este producto de la lista?")) {
+                    inventoryData.splice(editingProductIndex, 1);
+                    window.saveInventoryData(true);
+                    window.closeEditProductModal();
+                }
+            } else if (enteredCode !== null) {
+                alert("Código incorrecto. No se puede eliminar el producto.");
+            }
+        }
+
+        // --- GESTIÓN DE EQUIPOS (MODAL) ---
+        window.openTeamModal = function() {
+            const r1 = document.getElementById('responsable-1').value;
+            // const r2 = document.getElementById('responsable-2').value;
+            const r3 = document.getElementById('responsable-3').value;
+            // const r4 = document.getElementById('responsable-4').value;
+
+            document.getElementById('modal-resp-1').value = r1;
+            // document.getElementById('modal-resp-2').value = r2;
+            document.getElementById('modal-resp-3').value = r3;
+            // document.getElementById('modal-resp-4').value = r4;
+
+            document.getElementById('team-modal').style.display = 'flex';
+        }
+
+        window.closeTeamModal = function() {
+            document.getElementById('team-modal').style.display = 'none';
+        }
+
+        window.saveTeamModal = function() {
+            const r1 = document.getElementById('modal-resp-1').value.trim();
+            // const r2 = document.getElementById('modal-resp-2').value.trim();
+            const r3 = document.getElementById('modal-resp-3').value.trim();
+            // const r4 = document.getElementById('modal-resp-4').value.trim();
+
+            // Sincronizar con los inputs del footer
+            document.getElementById('responsable-1').value = r1;
+            // document.getElementById('responsable-2').value = r2;
+            document.getElementById('responsable-3').value = r3;
+            // document.getElementById('responsable-4').value = r4;
+
+            // Actualizar vista y guardar
+            window.updateReportHeaders(true);
+            window.closeTeamModal();
+        }
+
+        // --- LÓGICA DE CHECKLIST (ACTUALIZADA) ---
+        window.toggleStatus = function(index) {
+            // Si acabamos de abrir el modal de edición, no hacemos toggle
+            if (longPressTriggered) return;
+
+            const item = inventoryData[index];
+            if (!item.status) {
+                item.status = 'ok';
+            } else if (item.status === 'ok') {
+                item.status = 'error';
+                item.hasErrorHistory = true; // NUEVO: MARCAR PARA SIEMPRE COMO ERROR
+            } else {
+                item.status = null;
+            }
+            window.saveInventoryData(true);
+        }
+
+        // --- INICIALIZACIÓN ---
+        document.addEventListener('DOMContentLoaded', () => {
+            window.loadInventoryDataFromLocal();
+            window.renderInventoryTable();
+            window.updateReportHeaders(false);
+            document.getElementById('report-date').textContent = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            
+            // --- INICIALIZACIÓN DE LA CELEBRACIÓN ---
+            initCelebrationLogic();
+
+            // --- ABRIR MODAL AUTOMÁTICAMENTE AL INICIO ---
+            // Pequeño timeout para asegurar que todo cargó
+            setTimeout(() => {
+                window.openTeamModal();
+            }, 300);
+        });
+
+        // --- UI Y RENDERIZADO ---
+        window.renderInventoryTable = function() {
+            const tbody = document.getElementById('inventory-list');
+            if (!tbody) return;
+            tbody.innerHTML = ''; 
+
+            inventoryData.forEach((item, index) => {
+                // LÓGICA DE FILTRADO
+                if (currentFilter && !item.name.toLowerCase().includes(currentFilter)) {
+                    return; // Si no coincide con el filtro, saltamos este producto
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = 'table-row';
+                const qtyValue = parseFloat(item.quantity) || 0;
+                const zeroClass = qtyValue === 0 ? 'zero-qty' : '';
+
+                // Determinar clases e iconos según el estado
+                let statusClass = '';
+                // Botón por defecto (Gris / Vacío) - Más grande para facilitar el toque
+                let statusIcon = `
+                    <div class="w-7 h-7 rounded-lg border-2 border-gray-500 bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors">
+                        <!-- Vacío (Tamaño reducido a w-7 h-7) -->
+                    </div>`;
+                
+                if (item.status === 'ok') {
+                    statusClass = 'status-ok'; // Fondo verde claro en toda la celda
+                    statusIcon = `
+                        <div class="w-7 h-7 rounded-lg bg-green-500 border-2 border-green-400 flex items-center justify-center text-white shadow-lg shadow-green-500/50 transform scale-110 transition-transform">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </div>`;
+                } else if (item.status === 'error') {
+                    statusClass = 'status-error'; // Fondo rojo claro en toda la celda
+                    statusIcon = `
+                        <div class="w-7 h-7 rounded-lg bg-red-500 border-2 border-red-400 flex items-center justify-center text-white shadow-lg shadow-red-500/50 transform scale-110 transition-transform">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </div>`;
+                }
+
+                // ESTRUCTURA MODIFICADA:
+                // 1. Botón explícito para el checklist a la izquierda.
+                // 2. El texto del nombre solo reacciona al Long Press (Mantener presionado), no al click simple.
+                tr.innerHTML = `
+                    <td class="table-data product-cell ${statusClass}">
+                        <div class="flex items-center">
+                            <!-- BOTÓN DE ACCIÓN (CHECKLIST) -->
+                            <button 
+                                onclick="window.toggleStatus(${index})"
+                                class="mr-3 focus:outline-none active:scale-90 transition-transform"
+                                title="Marcar estado"
+                            >
+                                ${statusIcon}
+                            </button>
+
+                            <!-- NOMBRE DEL PRODUCTO (Solo Long Press) -->
+                            <span class="flex-1 py-1 select-none cursor-text"
+                                ontouchstart="startLongPress(${index})"
+                                ontouchend="endLongPress(event, ${index})"
+                                onmousedown="startLongPress(${index})"
+                                onmouseup="endLongPress(event, ${index})"
+                                onmouseleave="cancelLongPress()"
+                                oncontextmenu="return false;"
+                            >
+                                ${item.name}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="table-data qty-cell ${zeroClass}" 
+                        onclick="event.stopPropagation(); window.openCalculator(${index}, '${item.name.replace(/'/g, "\\'")}')"
+                        id="qty-cell-${index}">
+                        <span id="qty-display-${index}" data-quantity="${qtyValue}" data-history="${item.history || '0'}">${qtyValue}</span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        window.updateReportHeaders = function(shouldSave) {
+            const r1Input = document.getElementById('responsable-1');
+            // const r2Input = document.getElementById('responsable-2');
+            const r3Input = document.getElementById('responsable-3');
+            // const r4Input = document.getElementById('responsable-4');
+            
+            if (!shouldSave) {
+                r1Input.value = responsables.resp1 === "SIN NOMBRE" ? "" : responsables.resp1;
+                // r2Input.value = responsables.resp2 === "SIN NOMBRE" ? "" : responsables.resp2;
+                r3Input.value = responsables.resp3 === "SIN NOMBRE" ? "" : responsables.resp3;
+                // r4Input.value = responsables.resp4 === "SIN NOMBRE" ? "" : responsables.resp4;
+            }
+
+            const r1 = r1Input.value || "SIN NOMBRE";
+            // const r2 = r2Input.value || "SIN NOMBRE";
+            const r3 = r3Input.value || "SIN NOMBRE";
+            // const r4 = r4Input.value || "SIN NOMBRE";
+
+            document.getElementById('resp1-display').textContent = r1.toUpperCase();
+            // document.getElementById('resp2-display').textContent = r2.toUpperCase();
+            document.getElementById('resp3-display').textContent = r3.toUpperCase();
+            // document.getElementById('resp4-display').textContent = r4.toUpperCase();
+            
+            clearTimeout(window.saveTimeout);
+            if (shouldSave) {
+                 window.saveTimeout = setTimeout(() => {
+                    window.saveInventoryData(true);
+                }, 500);
+            }
+        }
+
+        window.calculateTotalItems = function() {
+            const count = inventoryData.filter(i => (parseFloat(i.quantity) || 0) > 0).length;
+            document.getElementById('stocked-products-count').textContent = count;
+        }
+
+        // --- LÓGICA CALCULADORA ESTÁNDAR (AUDIT TRAIL) ---
+        let currentInput = '0';
+        let runningTotal = null;
+        let lastOperator = null;
+        let fullHistory = '';
+        let shouldResetScreen = false;
+        let editingProductIndexForCalc = null; 
+
+        const displayElement = document.getElementById('display');
+        const prevOpElement = document.getElementById('prev-operation');
+
+        window.openCalculator = function(index, productName) {
+            window.clearSearch(false);
+            editingProductIndexForCalc = index; 
+            
+            // CARGA INTELIGENTE: Si el historial es '0', empezamos limpio.
+            // Si tiene datos (ej: "10 + 10 = 20"), lo cargamos tal cual.
+            fullHistory = inventoryData[index].history || '';
+            if (fullHistory === '0') fullHistory = '';
+            
+            // La pantalla principal muestra la cantidad actual
+            currentInput = String(inventoryData[index].quantity || '0');
+            
+            runningTotal = null;
+            lastOperator = null;
+            shouldResetScreen = false;
+
+            document.getElementById('calc-product-name').innerText = productName;
+            updateDisplay();
+            
+            // Mostrar historial recuperado
+            if(document.getElementById('prev-operation')) {
+                document.getElementById('prev-operation').textContent = fullHistory;
+            }
+            
+            document.getElementById('calculator-modal').style.display = 'flex';
+        }
+
+        window.closeCalculator = function() {
+            document.getElementById('calculator-modal').style.display = 'none';
+            editingProductIndexForCalc = null;
+        }
+
+        window.updateDisplay = function() {
+            const display = document.getElementById('display');
+            if(!display) return;
+            
+            display.innerText = currentInput;
+            if (currentInput.length > 10) {
+                display.style.fontSize = '32px';
+            } else {
+                display.style.fontSize = '48px';
+            }
+        }
+
+        window.appendNumber = function(number) {
+            if (currentInput === '0' || shouldResetScreen) {
+                currentInput = number === '.' ? '0.' : number;
+                shouldResetScreen = false;
+            } else {
+                if (number === '.' && currentInput.includes('.')) return;
+                currentInput += number;
+            }
+            window.updateDisplay();
+        }
+
+        window.appendOperator = function(op) {
+            const val = parseFloat(currentInput);
+            const prevOpDisplay = document.getElementById('prev-operation');
+            
+            if (runningTotal === null) {
+                runningTotal = val;
+                
+                // LÓGICA CLAVE: APPENDING
+                let text = fullHistory.trim();
+                
+                if (text === '') {
+                    // Si estaba vacío, empezamos: "10 +"
+                    fullHistory = currentInput + ' ' + getOpSymbol(op);
+                } else {
+                    // Si ya había historia (ej: "... = 20"), AGREGAMOS el operador al final.
+                    // Resultado: "... = 20 +"
+                    fullHistory = text + ' ' + getOpSymbol(op);
+                }
+            } else if (!shouldResetScreen) {
+                 // Cadena continua (ej: 10 + 10 + ...)
+                 window.calculate(false);
+                 fullHistory += ' ' + getOpSymbol(op);
+            } else {
+                 // Cambio de operador
+                 lastOperator = op;
+                 fullHistory = fullHistory.slice(0, -1) + getOpSymbol(op);
+                 if(prevOpDisplay) prevOpDisplay.textContent = fullHistory;
+                 return;
+            }
+
+            lastOperator = op;
+            if(prevOpDisplay) prevOpDisplay.textContent = fullHistory;
+            shouldResetScreen = true;
+        }
+
+        window.getOpSymbol = function(op) {
+            switch(op) {
+                case '*': return '×';
+                case '/': return '÷';
+                case '-': return '−';
+                case '+': return '+';
+                default: return op;
+            }
+        }
+
+        window.calculate = function(isFinal) {
+            if (lastOperator === null || (shouldResetScreen && isFinal === false)) return;
+            
+            const current = parseFloat(currentInput);
+            let result;
+
+            switch (lastOperator) {
+                case '+': result = runningTotal + current; break;
+                case '-': result = runningTotal - current; break;
+                case '*': result = runningTotal * current; break;
+                case '/': 
+                    if (current === 0) {
+                        window.showError("Error");
+                        return;
+                    }
+                    result = runningTotal / current; 
+                    break;
+                case '%': result = (runningTotal * current) / 100; break;
+                default: return;
+            }
+            
+            result = Math.round(result * 1000000) / 1000000;
+            const prevOpDisplay = document.getElementById('prev-operation');
+
+            if (isFinal) {
+                // AL PRESIONAR IGUAL:
+                // No borramos fullHistory. Lo extendemos.
+                // Ej: "... + 10" se convierte en "... + 10 = 30"
+                fullHistory = fullHistory + ' ' + currentInput + ' = ' + result;
+                
+                if(prevOpDisplay) prevOpDisplay.textContent = fullHistory;
+                
+                currentInput = result.toString();
+                runningTotal = null;
+                lastOperator = null;
+                // NOTA: NO borramos fullHistory. Se mantiene visible.
+            } else {
+                // Cálculo intermedio
+                fullHistory = fullHistory + ' ' + currentInput;
+                runningTotal = result;
+                currentInput = result.toString();
+            }
+            
+            shouldResetScreen = true;
+            window.updateDisplay();
+        }
+
+        window.specialOp = function(type) {
+            let val = parseFloat(currentInput);
+            switch(type) {
+                case '1/x': val = 1 / val; break;
+                case 'x2': val = val * val; break;
+                case 'sqrt': val = Math.sqrt(val); break;
+            }
+            currentInput = val.toString();
+            window.updateDisplay();
+            shouldResetScreen = true;
+        }
+
+        window.clearEntry = function() {
+            currentInput = '0';
+            window.updateDisplay();
+        }
+
+        // BORRAR TODO (C): Este SÍ limpia el historial para empezar de cero.
+        window.allClear = function() {
+            currentInput = '0';
+            runningTotal = null;
+            lastOperator = null;
+            fullHistory = ''; // Reinicia la cadena
+            if(document.getElementById('prev-operation')) document.getElementById('prev-operation').textContent = '';
+            window.updateDisplay();
+        }
+
+        window.deleteLast = function() {
+            if (shouldResetScreen) return;
+            if (currentInput.length <= 1) {
+                currentInput = '0';
+            } else {
+                currentInput = currentInput.slice(0, -1);
+            }
+            window.updateDisplay();
+        }
+
+        window.toggleSign = function() {
+            currentInput = (parseFloat(currentInput) * -1).toString();
+            window.updateDisplay();
+        }
+
+        window.showError = function(msg) {
+            const display = document.getElementById('display');
+            if(display) {
+                const oldText = display.innerText;
+                display.innerText = msg;
+                setTimeout(() => {
+                     display.innerText = oldText;
+                     window.allClear();
+                }, 1500);
+            }
+        }
+
+        // GUARDAR: Toma lo que hay en pantalla (incluyendo el historial visible)
+        window.saveAndClose = function() {
+            if (lastOperator !== null && !shouldResetScreen) {
+                window.calculate(true);
+            }
+
+            if (editingProductIndexForCalc === null) {
+                window.closeCalculator();
+                return;
+            }
+
+            const finalValue = parseFloat(currentInput);
+            
+            if (finalValue >= 0 && !isNaN(finalValue)) {
+                inventoryData[editingProductIndexForCalc].quantity = finalValue;
+                // Guardamos el texto completo del historial
+                const histElem = document.getElementById('prev-operation');
+                inventoryData[editingProductIndexForCalc].history = histElem ? histElem.textContent : '';
+            } else {
+                inventoryData[editingProductIndexForCalc].quantity = 0;
+            }
+            
+            window.saveInventoryData();
+            window.closeCalculator();
+        }
+
+        // Manejo de teclado
+        window.addEventListener('keydown', (e) => {
+            if(document.getElementById('calculator-modal').style.display !== 'flex') return;
+
+            if (e.key >= 0 && e.key <= 9) window.appendNumber(e.key);
+            if (e.key === '.' || e.key === ',') window.appendNumber('.');
+            if (e.key === '+') window.appendOperator('+');
+            if (e.key === '-') window.appendOperator('-');
+            if (e.key === '*') window.appendOperator('*');
+            if (e.key === '/') window.appendOperator('/');
+            if (e.key === 'Enter' || e.key === '=') window.calculate(true);
+            if (e.key === 'Backspace') window.deleteLast();
+            if (e.key === 'Escape') window.closeCalculator();
+        });
+        
+        // --- MODALES ---
+        window.openResetModal = function() { document.getElementById('reset-modal').style.display = 'flex'; }
+        window.closeResetModal = function() { document.getElementById('reset-modal').style.display = 'none'; }
+
+        // --- EXPORTAR EXCEL (.XLSX) ---
+        window.downloadExcel = function() {
+            const r1 = document.getElementById('responsable-1').value.trim();
+            // const r2 = document.getElementById('responsable-2').value.trim();
+            const r3 = document.getElementById('responsable-3').value.trim();
+            // const r4 = document.getElementById('responsable-4').value.trim();
+            const date = document.getElementById('report-date').textContent;
+            
+            // Construir texto de Equipo 1 (Resp 1 y 2) para el reporte interno (celdas dentro del excel)
+            const team1Names = [r1,].filter(n => n && n !== "SIN NOMBRE" && n !== "");
+            const team1Text = team1Names.length > 0 ? team1Names.join(" / ").toUpperCase() : "SIN ASIGNAR";
+
+            // --- LÓGICA PARA EL NOMBRE DEL ARCHIVO (PRIORIDAD AL EQUIPO ROJO) ---
+            // Tomamos al Responsable 1, si no existe, tomamos al Responsable 2
+            let nameForFile = r1;
+            if (!nameForFile || nameForFile === "SIN NOMBRE") {
+                nameForFile = r2;
+            }
+            
+            // Sanitizar nombre para que sea válido en un archivo (quitar caracteres raros)
+            const team1FileSuffix = (nameForFile && nameForFile !== "SIN NOMBRE") 
+                                    ? "_" + nameForFile.toUpperCase().replace(/[^A-Z0-9\-]/g, '_') 
+                                    : "";
+
+            // Construir texto de Equipo 2 (Resp 3 y 4)
+            const team2Names = [r3,].filter(n => n && n !== "SIN NOMBRE" && n !== "");
+            const team2Text = team2Names.length > 0 ? team2Names.join(" / ").toUpperCase() : "SIN ASIGNAR";
+
+            // FILTRAR PRODUCTOS CON EXISTENCIA (>0)
+            const itemsWithQuantity = inventoryData.filter(item => parseFloat(item.quantity) > -1);
+            const countWithQuantity = itemsWithQuantity.length;
+
+            // --- LÓGICA DE ESTRELLAS DE ERROR (ACTUALIZADA) ---
+            // Contamos los productos que han tenido error en algún momento (hasErrorHistory)
+            const errorCount = inventoryData.filter(i => i.hasErrorHistory).length;
+            // Generamos las estrellas según la cantidad de errores
+            const starString = errorCount > 0 ? "❌".repeat(errorCount) : "";
+
+            // 1. Crear matriz de datos para Excel
+            // CABECERA (Header Info)
+            const ws_data = [
+                ["","INVENTARIO DE VIVERES 🫂CECOSESOLA R.L J085030140🫂"],
+                ["","PASILLO N° 2 🛒 DE FERIA DEL ESTE 🛒"],
+                ["","FECHA", date],
+                // AQUÍ SE APLICA LA LÓGICA DE LAS ESTRELLAS
+                ["","RESPONBLE DIRECTO " + starString, team1Text],
+
+                ["","COMPAÑERO :", team2Text],
+                [], // Fila vacía antes de la tabla
+                ["ESTADO✔️", "     🖐️ PRODUCTO   ", "HISTORIAL", "-----CANTIDAD------"] // Cabeceras de columna
+            ];
+
+            // Variable para calcular el ancho máximo del historial
+        
+            let maxHistoryLen = 15;
+
+
+            // 2. Agregar los datos del inventario (FILAS DE PRODUCTOS)
+             itemsWithQuantity.forEach(item => {
+            let estadoTexto = "PENDIENTE";
+            if(item.status === 'ok') estadoTexto = "CHEQUEADO";
+            if(item.status === 'error') estadoTexto = "DIFERENCIA";
+
+                const historyText = item.history || "0";
+                
+                if (historyText.length > maxHistoryLen) {
+                    maxHistoryLen = historyText.length;
+                }
+
+                ws_data.push([
+                    estadoTexto,
+                    item.name,
+                    historyText,
+                    parseFloat(item.quantity)
+                ]);
+            });
+
+            // 3. AGREGAR TOTAL AL FINAL (Debajo de la lista)
+            ws_data.push([]); // Una fila vacía para separar
+            // ws_data.push(["","CANTIDAD DE PRODUCTOS:", countWithQuantity]); // El total
+
+            // Ajuste de "padding" visual al ancho calculado
+            maxHistoryLen = maxHistoryLen + 2;
+            if (maxHistoryLen > 150) maxHistoryLen = 150;
+
+            // 4. Crear hoja de trabajo y libro
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Inventario pasillo 2");
+
+            // Configuración de anchos de columna (A=29, B=29, C=Dinámico, D=15)
+            ws['!cols'] = [
+                { wch: 32 }, // A: ESTADO
+                { wch: 40 }, // B: PRODUCTO
+                { wch: maxHistoryLen }, // C: HISTORIAL (Dinámico)
+                { wch: 15 }  // D: CANTIDAD
+            ];
+
+            // Nombre del archivo usando solo la primera persona válida del Equipo 1
+            const fileName = `Inventario_pasillo 2${team1FileSuffix}_${date.replace(/\//g, '-')}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+
+            // --- MOSTRAR CELEBRACIÓN AUTOMÁTICAMENTE ---
+            // Llamamos directamente a la función de disparo de fiesta
+            if (window.triggerCelebration) {
+                window.triggerCelebration();
+            }
+        }
+
+        // --- CAMBIO DE TEMA ---
+        window.toggleTheme = function() {
+            const isLight = document.body.classList.toggle('light-theme');
+            document.getElementById('moon-icon').classList.toggle('hidden', isLight);
+            document.getElementById('sun-icon').classList.toggle('hidden', !isLight);
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+             const savedTheme = localStorage.getItem('theme');
+             if (savedTheme === 'light') {
+                 document.body.classList.add('light-theme');
+                 if(document.getElementById('sun-icon')) document.getElementById('sun-icon').classList.remove('hidden');
+                 if(document.getElementById('moon-icon')) document.getElementById('moon-icon').classList.add('hidden');
+             } else {
+                 if(document.getElementById('sun-icon')) document.getElementById('sun-icon').classList.add('hidden');
+                 if(document.getElementById('moon-icon')) document.getElementById('moon-icon').classList.remove('hidden');
+             }
+        });
+
+        // ==========================================
+        // === LÓGICA DE LA PANTALLA DE CELEBRACIÓN (OPTIMIZADA) ===
+        // ==========================================
+        function initCelebrationLogic() {
+            const btn = document.getElementById('celeb-mainButton');
+            const message = document.getElementById('thanks-message');
+            const overlay = document.getElementById('celebration-overlay');
+            const backBtn = document.getElementById('celeb-backButton');
+            const colors = ['#FF007F', '#00D4FF', '#FFD700', '#32CD32', '#FF4500', '#9370DB', '#FFFFFF', '#00FFCC', '#FF69B4'];
+            
+            let canInteract = false;
+
+            // --- DEFINIR FUNCIÓN GLOBAL PARA ACTIVAR DESDE AFUERA ---
+            window.triggerCelebration = function() {
+                // 1. Mostrar Overlay
+                overlay.style.display = 'flex';
+                
+                // 2. Ocultar el botón manual
+                if(btn) btn.style.display = 'none';
+
+                // 3. Vibrar
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+                // 4. Iniciar efectos inmediatamente (OPTIMIZADO)
+                requestAnimationFrame(() => {
+                     // Disparo central
+                    initExplosion(window.innerWidth / 2, window.innerHeight / 2);
+                    
+                    // Disparos aleatorios extra (retrasados ligeramente)
+                    setTimeout(() => initExplosion(window.innerWidth * 0.3, window.innerHeight * 0.4), 200);
+                    setTimeout(() => initExplosion(window.innerWidth * 0.7, window.innerHeight * 0.4), 400);
+
+                    // GLOBOS FLOTANTES
+                    createBalloons();
+                });
+
+                // 5. Mostrar mensaje
+                setTimeout(() => {
+                    message.classList.add('show');
+                    canInteract = true;
+                }, 300);
+            };
+
+            // Botón Regresar
+            if(backBtn) {
+                backBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Evitar que dispare la fiesta
+                    overlay.style.display = 'none';
+                    // Resetear mensaje y globos para la próxima
+                    if(message) message.classList.remove('show');
+                    document.getElementById('balloons-container').innerHTML = ''; 
+                });
+            }
+
+            // OPTIMIZACIÓN: Crear fragmento para no repintar el DOM 50 veces por explosión
+            function initExplosion(x, y) {
+                createShockwave(x, y);
+                createRain(x);
+            }
+
+            function createShockwave(x, y) {
+                const fragment = document.createDocumentFragment();
+                // Reducido ligeramente el número de partículas para mejorar rendimiento sin perder efecto
+                const count = 30; 
+                
+                for (let i = 0; i < count; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'particle';
+                    p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    if (Math.random() > 0.5) p.style.borderRadius = '50%';
+                    
+                    const size = 5 + Math.random() * 12;
+                    p.style.width = size + 'px';
+                    p.style.height = size + 'px';
+                    p.style.left = x + 'px';
+                    p.style.top = y + 'px';
+                    
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = 100 + Math.random() * 300;
+                    
+                    // USAR VARIABLES CSS para la animación en GPU
+                    p.style.setProperty('--x', `${Math.cos(angle) * distance}px`);
+                    p.style.setProperty('--y', `${Math.sin(angle) * distance}px`);
+                    p.style.setProperty('--r', `${Math.random() * 720}deg`);
+                    
+                    p.style.animation = `explodeOut ${0.5 + Math.random() * 0.5}s ease-out forwards`;
+                    fragment.appendChild(p);
+                    
+                    // Eliminar automáticamente después de la animación
+                    setTimeout(() => p.remove(), 1000);
+                }
+                overlay.appendChild(fragment);
+            }
+
+            function createRain(originX) {
+                const fragment = document.createDocumentFragment();
+                // Ajustado cantidad para rendimiento (30 interactivo, 60 automático)
+                const count = canInteract ? 30 : 60;
+                
+                for (let i = 0; i < count; i++) {
+                    const c = document.createElement('div');
+                    c.className = 'confetti';
+                    c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    
+                    const startX = canInteract ? (originX + (Math.random() - 0.5) * 200) : (Math.random() * 100);
+                    c.style.left = canInteract ? `${startX}px` : `${startX}vw`;
+                    c.style.top = '-20px';
+                    
+                    const size = 6 + Math.random() * 8;
+                    c.style.width = size + 'px';
+                    c.style.height = (size * 0.7) + 'px';
+                    
+                    const duration = 2 + Math.random() * 2;
+                    const floorY = window.innerHeight - (Math.random() * 30 + 10);
+                    
+                    c.style.setProperty('--floor-y', `${floorY}px`);
+                    c.style.setProperty('--drift', `${(Math.random() - 0.5) * 100}px`);
+                    c.style.animation = `fallToFloor ${duration}s linear forwards`;
+                    
+                    fragment.appendChild(c);
+
+                    // Limpieza y posición final
+                    setTimeout(() => {
+                        c.style.animation = 'none';
+                        c.classList.add('on-floor');
+                        c.style.top = 'auto';
+                        c.style.bottom = (window.innerHeight - floorY) + 'px';
+                        c.style.transform = `rotate(${Math.random() * 360}deg)`;
+                    }, duration * 1000);
+                }
+                overlay.appendChild(fragment);
+            }
+
+            // --- FUNCIÓN GLOBOS (OPTIMIZADA CON FRAGMENT) ---
+            function createBalloons() {
+                const container = document.getElementById('balloons-container');
+                if(!container) return;
+                container.innerHTML = ''; 
+
+                const fragment = document.createDocumentFragment();
+                const balloonCount = 20; 
+                
+                for(let i=0; i<balloonCount; i++) {
+                    const b = document.createElement('div');
+                    b.className = 'balloon';
+                    
+                    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                    b.style.setProperty('--balloon-color', randomColor);
+                    
+                    const leftPos = Math.random() * 95;
+                    b.style.left = leftPos + '%';
+                    
+                    const speed = 4 + Math.random() * 4;
+                    b.style.animationDuration = speed + 's';
+                    
+                    const delay = Math.random() * 2;
+                    b.style.animationDelay = delay + 's';
+                    
+                    const finalBottom = 85 + Math.random() * 10;
+                    b.style.setProperty('--float-final-y', finalBottom + '%');
+                    
+                    const drift = (Math.random() - 0.5) * 50;
+                    b.style.setProperty('--drift-x', drift + 'px');
+
+                    const rot = (Math.random() - 0.5) * 20;
+                    b.style.setProperty('--rot', rot + 'deg');
+                    
+                    b.style.animationName = 'floatUpAndStay';
+                    b.style.animationFillMode = 'forwards';
+                    b.style.animationTimingFunction = 'ease-out';
+
+                    // Timeout para la oscilación posterior
+                    setTimeout(() => {
+                        if (container.contains(b)) { // Chequeo de seguridad
+                            b.style.animationName = 'sway';
+                            b.style.animationDuration = '3s';
+                            b.style.animationIterationCount = 'infinite';
+                            b.style.animationTimingFunction = 'ease-in-out';
+                            b.style.bottom = finalBottom + '%';
+                            b.style.transform = `translateX(${drift}px) rotate(${rot}deg)`;
+                        }
+                    }, (speed + delay) * 1000);
+
+                    fragment.appendChild(b);
+                }
+                container.appendChild(fragment);
+            }
+        }
+    </script>
+</body>
+</html>
